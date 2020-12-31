@@ -1,6 +1,9 @@
 {
   "dependencies": {
+    "@react-native-firebase/app": "^10.4.0",
+    "@react-native-firebase/database": "^10.4.0",
     "expo": "~40.0.0",
+    "firebase": "7.9.0",
     "next": "9.3.5",
     "react": "16.13.1",
     "react-dom": "16.13.1",
