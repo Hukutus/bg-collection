@@ -2,6 +2,21 @@ import {StyleSheet, Text, TextInput, View} from "react-native";
 import React, {FC, useState} from "react";
 import BGGApi from "../components/BGGApi";
 
+import { firebase } from '../components/Firebase';
+const db = firebase.firestore();
+
+/*const getUsers = async (): Promise<void> => {
+  console.log("Get users!");
+
+  const snapshot = await db
+    .collection("collections")
+    .get();
+
+  snapshot.forEach((doc) => {
+    console.log("Data?", doc.data());
+  });
+};*/
+
 const Home: FC = () => {
   const [playerCount, playerCountChange] = useState<string>();
 
@@ -38,7 +53,6 @@ const styles = StyleSheet.create({
     margin: 10,
   },
   countSelector: {
-    flex: 1,
     flexDirection: "row",
     margin: 10,
     width: "100%",

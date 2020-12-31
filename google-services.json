@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "515100894425",
+    "firebase_url": "https://bg-collection-app-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "bg-collection-app",
+    "storage_bucket": "bg-collection-app.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:515100894425:android:3e9b3df60472c66dde0ac8",
+        "android_client_info": {
+          "package_name": "com.reactnativefirebase"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "515100894425-qjodrsraaorbrdvr1ij1vrgskqqbocro.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClhvnOgaun_5fIaL6EXX6Y4-DBNuqhjKc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "515100894425-qjodrsraaorbrdvr1ij1vrgskqqbocro.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

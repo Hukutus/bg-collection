@@ -43,6 +43,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 10,
     borderRadius: 6,
+    marginBottom: 10,
   },
   infoBox: {
     flex: 1,

@@ -4,6 +4,9 @@ import {StyleSheet, View, Text, ScrollView} from "react-native";
 
 const parseString = require('react-native-xml2js').parseString;
 
+import { firebase } from '../components/Firebase';
+const db = firebase.firestore();
+
 export interface BGGPlayerData {
   min: number;
   max: number;
@@ -297,18 +300,21 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
     collection.gamesFetched = true;
 
     console.log("Collection parsed!", gameList?.length, gamesByPlayerCount?.length);
+    // db.collection("CompleteGameCollections").doc().set(collection);
 
     setCollection(collection);
   };
 
   useEffect(() => {
-    if (collection && !collection?.gamesFetched) {
+    /*if (collection && !collection?.gamesFetched) {
       console.log("Collection found, get games", collection?.user);
+      // db.collection("GameCollections").doc().set(collection);
+
       (async function fetchGamesAsync() {
         console.log("Skip getting collection for now");
         // await addGamesToCollection(collection);
       })();
-    }
+    }*/
   }, [collection]);
 
   const getCollection = async (userName: string): Promise<void> => {
@@ -346,7 +352,15 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
   useEffect(() => {
     if (!collection) {
       (async function fetchCollectionAsync() {
-        await getCollection("Domonation");
+        // await getCollection("Domonation");
+
+        db.collection("CompleteGameCollections").get().then(snapshot => {
+          console.log("Found data from Firestore", snapshot.size);
+
+          snapshot.forEach((doc) => {
+            setCollection(doc.data());
+          });
+        });
       })();
     }
   }, []);
