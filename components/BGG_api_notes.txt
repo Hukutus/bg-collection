@@ -1,0 +1,34 @@
+GEEK.apiurlsPrefix = 'https://api.geekdo.com';
+
+// Example queries from BGG forums
+https://api.geekdo.com/api/geekitems?search=titan&showcount=10&nosession=1&ajax=1&objecttype=thing
+https://api.geekdo.com/api/geekitems?objectid=103&showcount=10&nosession=1&ajax=1&objecttype=thing
+https://api.geekdo.com/api/hotness?geeksite=boardgame&nosession=1&objecttype=thing&showcount=30
+
+GEEK.apiurls = {
+    'amazon': '/api/amazon',
+    'files': '/api/files',
+    'geekitems': '/api/geekitems',
+    'images': '/api/images',
+    'threads': '/api/forums/threads',
+    'forums': '/api/forums',
+    'videos': '/api/videos',
+    'hotness': '/api/hotness',
+    'dynamicinfo': '/api/dynamicinfo',
+    'subtypeinfo': '/api/subtypeinfo',
+    'geekbay': '/api/geekbay',
+    'geekmarket': '/geekmarket/api/v1',
+    'geekmarketapi': '/api/geekmarket',
+    'geeklists': '/api/geeklists',
+    'reviews': '/api/forumreviews',
+    'collections': '/api/collections',
+    'linkeditems': '/api/geekitem/linkeditems',
+    'subscriptions': '/api/subscriptions',
+    'fans': '/api/fans',
+    'geekpreviews': '/api/geekpreviews',
+    'geekpreviewitems': '/api/geekpreviewitems',
+    'geekpreviewparentitems': '/api/geekpreviewparentitems',
+    'recs': '/api/geekitem/recs',
+    'awards': '/api/geekawards',
+    'historicalrankgraph':  '/api/historicalrankgraph'
+};
