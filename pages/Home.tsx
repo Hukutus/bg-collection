@@ -18,7 +18,7 @@ const db = firebase.firestore();
 };*/
 
 const Home: FC = () => {
-  const [playerCount, playerCountChange] = useState<string>();
+  const [playerCount, playerCountChange] = useState<string>("3");
 
   return (
     <View style={styles.view}>

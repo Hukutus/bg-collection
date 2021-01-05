@@ -1,11 +1,18 @@
 import React, {FC, useEffect, useState} from "react";
+import _ from "lodash";
+
+import {decode} from 'html-entities';
+
 import GameCard from "./GameCard";
-import {StyleSheet, View, Text, ScrollView} from "react-native";
+import {StyleSheet, View, Text, ScrollView, FlatList, SafeAreaView} from "react-native";
 
 const parseString = require('react-native-xml2js').parseString;
 
-import { firebase } from '../components/Firebase';
+import {firebase} from '../components/Firebase';
+
 const db = firebase.firestore();
+
+const bgUsers: string[] = ["Domonation", "m0rlo"];
 
 export interface BGGPlayerData {
   min: number;
@@ -26,13 +33,13 @@ export interface PlayerVotes {
   notrecommended: number;
 }
 
-export interface BoardGameCollection {
+// Stored in db, games only include name and id
+export interface BoardGameCollectionInfo {
   user: string;
   size: number;
 
-  games: BoardGame[];
-  gamesByPlayerCount: GamesByPlayerCount[];
-  gamesFetched: boolean;
+  games: BoardGameInfo[];
+  updatedAt?: Date;
 }
 
 export interface GamesByPlayerCount {
@@ -40,11 +47,16 @@ export interface GamesByPlayerCount {
   games: BoardGame[];
 }
 
-export interface BoardGame {
-  id?: string;
-  type?: string;
-
+export interface BoardGameInfo {
+  id: string;
   name?: string;
+}
+
+export interface BoardGame {
+  id: string;
+  name: string;
+
+  type?: string;
   alternateNames?: string[];
   description?: string;
   yearpublished?: string;
@@ -63,6 +75,9 @@ export interface BoardGame {
   playervotes?: PlayerVotes[];
   bestplayers?: string; // Parsed from votes
 
+  ownedBy?: string[]; // User names
+  updatedAt?: Date;
+
   // TODO
   links?: {
     categories?: BoardGameLink[]; // "boardgamecategory"
@@ -77,10 +92,12 @@ export interface BoardGame {
 }
 
 const apiPath: string = "https://www.boardgamegeek.com/xmlapi2/";
-// const newApiPath: string = "https://api.geekdo.com/api/";
 
+const sleep = (ms: number): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
 
-const parseCollection = (resultObject: Record<string, any>[], userName: string): BoardGameCollection | null => {
+const parseCollectionJson = (resultObject: Record<string, any>[], userName: string): BoardGameCollectionInfo | null => {
   if (!resultObject) {
     return null;
   }
@@ -93,21 +110,18 @@ const parseCollection = (resultObject: Record<string, any>[], userName: string):
         id: item.$.objectid,
         name: item.name[0]._
       }
-    }),
-    gamesByPlayerCount: [],
-    gamesFetched: false,
+    })
   };
 };
 
-const parseBoardGameFromGeneratedJson = (resultObject: Record<string, any>): BoardGame | null => {
-  if (!resultObject) {
-    return null;
-  }
-
+const parseBoardGameFromGeneratedJson = (resultObject: Record<string, any>): BoardGame => {
   const stringArrays: string[] = ["description", "image", "thumbnail"];
   const numberStringArrays: string[] = ["maxplayers", "maxplaytime", "minage", "minplayers", "minplaytime", "playingtime", "yearpublished"];
 
-  let parsedBoardGame: BoardGame = {};
+  let parsedBoardGame: BoardGame = {
+    id: "-1",
+    name: "Unknown"
+  };
 
   for (const key of Object.keys(resultObject)) {
     if (key === "$") {
@@ -122,23 +136,25 @@ const parseBoardGameFromGeneratedJson = (resultObject: Record<string, any>): Boa
       // TODO Not needed right now
     } else if (key === "poll") {
       // Parse best players
-      parsedBoardGame.playervotes = resultObject[key][0].results
-        .map((item: Record<string, any>) => {
-          return {
-            numplayers: item.$.numplayers,
-            best: item.result[0].$.numvotes,
-            recommended: item.result[1].$.numvotes,
-            notrecommended: item.result[2].$.numvotes,
-          }
-        }).sort((a: PlayerVotes, b: PlayerVotes) => {
-          return b.best - a.best;
-        });
+      if (resultObject[key]) {
+        parsedBoardGame.playervotes = resultObject[key][0].results
+          .map((item: Record<string, any>) => {
+            return {
+              numplayers: item.$.numplayers,
+              best: item.result?.length ? item.result[0].$.numvotes : -1,
+              recommended: item.result?.length ? item.result[1].$.numvotes : -1,
+              notrecommended: item.result?.length ? item.result[2].$.numvotes : -1,
+            }
+          }).sort((a: PlayerVotes, b: PlayerVotes) => {
+            return b.best - a.best;
+          });
+      }
 
       parsedBoardGame.bestplayers = parsedBoardGame.playervotes ? parsedBoardGame.playervotes[0].numplayers : "Unknown";
       // TODO also parse "language_dependence" and "suggested_playerage"
     } else if (stringArrays.indexOf(key) !== -1) {
       // Value is inside a one-length array
-      parsedBoardGame[key as keyof BoardGame] = resultObject[key][0];
+      parsedBoardGame[key as keyof BoardGame] = key === "description" ? decode(resultObject[key][0]) : resultObject[key][0];
     } else if (numberStringArrays.indexOf(key) !== -1) {
       // Value is inside a one-length array inside key $
       parsedBoardGame[key as keyof BoardGame] = resultObject[key][0].$.value;
@@ -155,86 +171,92 @@ export interface ApiProps {
 }
 
 const BGGApi: FC<ApiProps> = (props: ApiProps) => {
-  const [collection, setCollection] = useState<BoardGameCollection>();
+  const [collection, setCollection] = useState<BoardGameCollectionInfo | null>();
+  const [gamesList, setGamesList] = useState<BoardGame[]>([]);
+  const [filteredGamesList, setFilteredGamesList] = useState<BoardGame[]>([]);
   const [playerCount, setPlayerCount] = useState<string>();
-
-  /*const [user, setUser] = useState<any>(undefined);
-  const [collection, setCollection] = useState<any>(undefined);
-
-  const getUser = async (userName: string): Promise<void> => {
-    await fetch(apiPath + "user?name=" + userName)
-      .then((res: Response) => {
-        return res.text();
-      })
-      .then((user) => {
-        const jsonRes = convert.xml2json(user, {compact: true, spaces: 4});
-        setUser(JSON.parse(jsonRes));
-      })
-      .catch(err => {
-        setUser(null);
-      });
-  };*/
-
-  // const organizeGamesByPlayerCount = (games: BoardGame[]): GamesByPlayerCount[] => {
-  //   if (!games?.length) {
-  //     return [];
-  //   }
-  //
-  //   const gamesByPlayerCount: GamesByPlayerCount[] = [];
-  //   for (const game of games) {
-  //     const prevIndex: number = gamesByPlayerCount.findIndex(item => item.bestplayers === game.bestplayers);
-  //
-  //     if (prevIndex === -1) {
-  //       // New entry
-  //       gamesByPlayerCount.push({
-  //         bestplayers: game.bestplayers || "",
-  //         games: [game]
-  //       });
-  //     } else {
-  //       // Add to previous entry
-  //       gamesByPlayerCount[prevIndex].games.push(game);
-  //     }
-  //   }
-  //
-  //   console.log("Games by player count", gamesByPlayerCount?.length);
-  //   return gamesByPlayerCount;
-  // };
-
-  // const sortCollection = (collection: BoardGameCollection): void => {
-  //   if (!collection?.gamesByPlayerCount?.length) {
-  //     return;
-  //   }
-  //
-  //   const playerCount: number = parseInt(props.playerCount, 10);
-  //   collection.gamesByPlayerCount = collection.gamesByPlayerCount.sort((a: BoardGame, b: BoardGame) => {
-  //     const aB: number = parseInt(a.bestplayers || "0", 10);
-  //     const bB: number = parseInt(b.bestplayers || "0", 10);
-  //
-  //     if (aB === bB) {
-  //       return 0;
-  //     }
-  //
-  //     if (bB === playerCount) {
-  //       // Prioritize player count
-  //       return -1;
-  //     }
-  //
-  //     // Prioritize one that's closer
-  //     return (bB - playerCount) - (aB - playerCount);
-  //   });
-  //
-  //   console.log("Re-ordered collection", collection.gamesByPlayerCount);
-  //   setCollection(collection);
-  // };
+  const [apiGamesQueue, setApiGamesQueue] = useState<string[]>([]);
 
   useEffect(() => {
     if (props.playerCount !== playerCount) {
       setPlayerCount(props.playerCount);
+
+      if (gamesList?.length) {
+        setFilteredGamesList(gamesList.filter((item: BoardGame) => props.playerCount ? item.bestplayers === props.playerCount : true))
+      }
     }
   }, [props.playerCount]);
 
-  const fetchGame = async (id: string): Promise<BoardGame | null> => {
-    return await fetch(apiPath + "thing?id=" + id)
+  useEffect(() => {
+    console.log("Games list updated", gamesList?.length);
+
+    if (gamesList?.length) {
+      setFilteredGamesList(gamesList.filter((item: BoardGame) => playerCount ? item.bestplayers === playerCount : true))
+    }
+  }, [gamesList]);
+
+  const setGame = async (gameId: string | undefined, changes: BoardGame): Promise<void> => {
+    if (!gameId || !changes) {
+      console.warn("No game or changes to set", gameId, changes);
+      return;
+    }
+
+    // Check if game exists in db
+    const gameDoc: BoardGame | null = await db
+      .collection("BoardGame")
+      .where("id", "==", gameId)
+      .get()
+      .then(snapshot => {
+        if (snapshot.empty) {
+          return null;
+        }
+
+        return snapshot?.docs?.length ? snapshot?.docs[0]?.data() as BoardGame : null;
+      });
+
+    let changeDetected: boolean = false;
+
+    if (gameDoc) {
+      // Found game in db
+      if (_.isEqual(gameDoc, changes)) {
+        // No changes
+        return;
+      } else {
+        // Update each key
+        for (const key of Object.keys(changes)) {
+          if (_.isEqual(gameDoc[key as keyof BoardGame], changes[key as keyof BoardGame])) {
+            // Value not changed
+            continue;
+          }
+
+          gameDoc[key as keyof BoardGame] = changes[key as keyof BoardGame] as any;
+          changeDetected = true;
+        }
+      }
+    } else {
+      // New entry
+      changeDetected = true;
+    }
+
+    if (!changeDetected) {
+      // Not changes
+      return;
+    }
+
+    await db
+      .collection("BoardGame")
+      .doc(gameId)
+      .set(gameDoc || changes, {merge: true});
+
+    console.log("Saved game to database", gameId, gameDoc || changes);
+  };
+
+  // gameIds separated by commas
+  const fetchGames = async (games: BoardGameInfo[], user: string): Promise<BoardGame[]> => {
+    const commaSeparatedGameIds: string = games.map(item => item.id).join(",");
+
+    // Fetch games from BGG API
+    return await fetch(apiPath + "thing?id=" + commaSeparatedGameIds)
       .then((res: Response) => {
         return res.text();
       })
@@ -245,7 +267,7 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
             return reject(err);
           }
 
-          const data = result?.items?.item?.length ? result.items.item[0] : null;
+          const data = result?.items?.item?.length ? result.items.item : null;
 
           if (!data) {
             console.warn("Invalid data from XML parse", result);
@@ -253,72 +275,101 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
           }
 
           resolve(data);
-        })) as Promise<Record<string, any>>;
+        })) as Promise<any[]>;
       })
-      .then((result: Record<string, any>) => {
-        return parseBoardGameFromGeneratedJson(result);
+      .then((result: any[]) => {
+        const fetchedGames: BoardGame[] = result.map(item => parseBoardGameFromGeneratedJson(item));
+
+        // Save changes to DB
+        for (const game of fetchedGames) {
+          game.ownedBy = game.ownedBy ? game.ownedBy.concat(user) : [user];
+          setGame(game.id, game);
+        }
+
+        return fetchedGames;
       })
       .catch(err => {
         console.error("Failed getting game info", err);
-        return null;
+        return [];
       });
   };
 
-  const addGamesToCollection = async (collection: BoardGameCollection): Promise<void> => {
-    const gameList: BoardGame[] = [];
-    const gamesByPlayerCount: GamesByPlayerCount[] = [];
+  const getGames = async (games: BoardGameInfo[]): Promise<BoardGame[]> => {
+    const gameIds: string[] = games.map(item => item.id);
 
-    for (const game of collection.games) {
-      if (!game.id) {
-        continue;
-      }
+    const promises: Promise<BoardGame[]>[] = [];
 
-      const gameData: BoardGame | null = await fetchGame(game.id);
+    // Firestore only allows fetching in with at most 10 elements, so split request into chunks
+    for (const chunk of _.chunk(gameIds, 10)) {
+      promises.push(
+        db
+          .collection("BoardGame")
+          .where("id", "in", chunk)
+          .get()
+          .then(snapshot => {
+            if (snapshot.empty || !snapshot?.docs?.length) {
+              return [];
+            }
 
-      if (gameData) {
-        gameList.push(gameData);
-
-        const prevIndex: number = gamesByPlayerCount.findIndex(item => item.bestplayers === gameData.bestplayers);
-
-        if (prevIndex === -1) {
-          // New entry
-          gamesByPlayerCount.push({
-            bestplayers: gameData.bestplayers!,
-            games: [gameData]
-          });
-        } else {
-          // Add to previous entry
-          gamesByPlayerCount[prevIndex].games.push(gameData);
-        }
-      } else {
-        console.warn("Unable to fetch game", game.name, game.id);
-      }
+            return snapshot.docs.map(item => item.data() as BoardGame);
+          })
+      );
     }
 
-    collection.games = gameList;
-    collection.gamesByPlayerCount = gamesByPlayerCount;
-    collection.gamesFetched = true;
+    // Wait for all promises, and concat arrays to one
+    return await Promise.all(promises)
+      .then((results: BoardGame[][]) => {
+        const temp: BoardGame[] = [];
+        return temp.concat.apply([], results);
+      });
+  };
 
-    console.log("Collection parsed!", gameList?.length, gamesByPlayerCount?.length);
-    // db.collection("CompleteGameCollections").doc().set(collection);
+  // Add games and gamesByPlayerCount to BoardGameCollectionInfo
+  const getCollectionGames = async (collectionInfo: BoardGameCollectionInfo): Promise<void> => {
+    const dbGames: BoardGame[] = await getGames(collectionInfo.games);
 
-    setCollection(collection);
+    // Check if all games were in DB, so no need to get games from BGG API
+    if (dbGames.length === collectionInfo.games.length) {
+      setGamesList(dbGames);
+      return;
+    }
+
+    // Get games from BGG API
+    // Also saves them to DB
+    const fetchedGames: BoardGame[] = await fetchGames(collectionInfo.games, collectionInfo.user);
+    setGamesList(fetchedGames);
   };
 
   useEffect(() => {
-    /*if (collection && !collection?.gamesFetched) {
-      console.log("Collection found, get games", collection?.user);
-      // db.collection("GameCollections").doc().set(collection);
-
-      (async function fetchGamesAsync() {
-        console.log("Skip getting collection for now");
-        // await addGamesToCollection(collection);
-      })();
-    }*/
+    if (collection) {
+      console.log("Collection is ready to show!", collection);
+    }
   }, [collection]);
 
   const getCollection = async (userName: string): Promise<void> => {
-    await fetch(apiPath + "collection?username=" + userName)
+    const gameCollectionInfo: BoardGameCollectionInfo | null = await db
+      .collection("GameCollections")
+      .where("user", "==", userName)
+      .get()
+      .then(snapshot => {
+        if (snapshot.empty) {
+          console.warn("Snapshot was empty", userName);
+          return null;
+        }
+
+        return snapshot?.docs?.length ? snapshot?.docs[0]?.data() as BoardGameCollectionInfo : null;
+      });
+
+    if (gameCollectionInfo) {
+      setCollection(gameCollectionInfo);
+      await getCollectionGames(gameCollectionInfo);
+      return;
+    }
+
+    console.log("Collection doesn't exist, get from BGG API", userName);
+
+    // Collection not in DB, fetch from BGG API
+    await fetch(apiPath + "collection?username=" + userName + "&own=1")
       .then((res: Response) => {
         return res.text();
       })
@@ -340,11 +391,28 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
         })) as Promise<Record<string, any>[]>;
       })
       .then((result: Record<string, any>[]) => {
-        setCollection(
-          parseCollection(result, userName)
-        );
+        const parsedCollectionInfo: BoardGameCollectionInfo | null = parseCollectionJson(result, userName);
+
+        if (parsedCollectionInfo) {
+          parsedCollectionInfo.updatedAt = new Date();
+
+          console.log("Got collection info from BGG API", parsedCollectionInfo);
+
+          db
+            .collection("GameCollections")
+            .doc()
+            .set(parsedCollectionInfo);
+
+          setCollection(parsedCollectionInfo);
+          getCollectionGames(parsedCollectionInfo);
+
+          return;
+        }
+
+        setCollection(null);
       })
       .catch(err => {
+        console.error("Failed getting collection", userName, err);
         setCollection(null);
       });
   };
@@ -352,50 +420,46 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
   useEffect(() => {
     if (!collection) {
       (async function fetchCollectionAsync() {
-        // await getCollection("Domonation");
-
-        db.collection("CompleteGameCollections").get().then(snapshot => {
-          console.log("Found data from Firestore", snapshot.size);
-
-          snapshot.forEach((doc) => {
-            setCollection(doc.data());
-          });
-        });
+        await getCollection("Domonation");
       })();
     }
   }, []);
 
   return (
-    <ScrollView style={styles.gamesList}>
-      {
-        collection?.gamesByPlayerCount?.length ?
-          collection?.gamesByPlayerCount
-            .filter((gamesByCount: GamesByPlayerCount) => !playerCount || gamesByCount.bestplayers === playerCount)
-            .map((gamesByCount: GamesByPlayerCount, i: number) => {
-              return (
-                <View
-                  key={"player_count_" + gamesByCount.bestplayers}
-                >
-                  <Text style={styles.playerCount}>
-                    Best with {gamesByCount.bestplayers} players
-                  </Text>
+    <SafeAreaView>
+      <Text style={styles.playerCount}>
+        {playerCount ? `Best with ${playerCount} players` : `No filter selected`}
+      </Text>
 
-                  {
-                    gamesByCount?.games.map((game: BoardGame) => {
-                      return (
-                        <GameCard
-                          key={i + "_" + game?.id}
-                          game={game}
-                        />
-                      );
-                    })
-                  }
-                </View>
-              )
+      <FlatList
+        data={filteredGamesList}
+        renderItem={({item, index, separators}) => (
+          <GameCard
+            game={item}
+          />
+        )}
+        keyExtractor={item => item.id}
+        onEndReachedThreshold={0.5}
+        initialNumToRender={10}
+      />
+    </SafeAreaView>
+
+    /*<ScrollView style={styles.gamesList}>
+      {
+        gamesList?.length ?
+          gamesList
+            .filter((game: BoardGame) => !playerCount || game.bestplayers === playerCount)
+            .map((game: BoardGame, i: number) => {
+              return (
+                <GameCard
+                  key={i + "_" + game?.id}
+                  game={game}
+                />
+              );
             })
           : <Text>Waiting for collection...</Text>
       }
-    </ScrollView>
+    </ScrollView>*/
   );
 };
 
