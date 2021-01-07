@@ -2,9 +2,10 @@ import React, {FC, useEffect, useState} from "react";
 import _ from "lodash";
 
 import {decode} from 'html-entities';
+import Swiper from "react-native-deck-swiper";
 
 import GameCard from "./GameCard";
-import {StyleSheet, View, Text, ScrollView, FlatList, SafeAreaView} from "react-native";
+import {StyleSheet, View, Text, ScrollView, FlatList, SafeAreaView, Button} from "react-native";
 
 const parseString = require('react-native-xml2js').parseString;
 
@@ -93,9 +94,9 @@ export interface BoardGame {
 
 const apiPath: string = "https://www.boardgamegeek.com/xmlapi2/";
 
-const sleep = (ms: number): Promise<void> => {
+/*const sleep = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms));
-};
+};*/
 
 const parseCollectionJson = (resultObject: Record<string, any>[], userName: string): BoardGameCollectionInfo | null => {
   if (!resultObject) {
@@ -175,7 +176,6 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
   const [gamesList, setGamesList] = useState<BoardGame[]>([]);
   const [filteredGamesList, setFilteredGamesList] = useState<BoardGame[]>([]);
   const [playerCount, setPlayerCount] = useState<string>();
-  const [apiGamesQueue, setApiGamesQueue] = useState<string[]>([]);
 
   useEffect(() => {
     if (props.playerCount !== playerCount) {
@@ -188,8 +188,6 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
   }, [props.playerCount]);
 
   useEffect(() => {
-    console.log("Games list updated", gamesList?.length);
-
     if (gamesList?.length) {
       setFilteredGamesList(gamesList.filter((item: BoardGame) => playerCount ? item.bestplayers === playerCount : true))
     }
@@ -340,12 +338,6 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
     setGamesList(fetchedGames);
   };
 
-  useEffect(() => {
-    if (collection) {
-      console.log("Collection is ready to show!", collection);
-    }
-  }, [collection]);
-
   const getCollection = async (userName: string): Promise<void> => {
     const gameCollectionInfo: BoardGameCollectionInfo | null = await db
       .collection("GameCollections")
@@ -431,7 +423,7 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
         {playerCount ? `Best with ${playerCount} players` : `No filter selected`}
       </Text>
 
-      <FlatList
+      {/*<FlatList
         data={filteredGamesList}
         renderItem={({item, index, separators}) => (
           <GameCard
@@ -440,8 +432,28 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
         )}
         keyExtractor={item => item.id}
         onEndReachedThreshold={0.5}
-        initialNumToRender={10}
-      />
+      />*/}
+
+      <Swiper
+        cards={['DO', 'MORE', 'OF', 'WHAT', 'MAKES', 'YOU', 'HAPPY']}
+        renderCard={(card) => {
+          return (
+            <View>
+              <Text>{card}</Text>
+            </View>
+          )
+        }}
+        onSwiped={(cardIndex) => {console.log(cardIndex)}}
+        onSwipedAll={() => {console.log('onSwipedAll')}}
+        cardIndex={0}
+        backgroundColor={'#4FD0E9'}
+        stackSize= {3}>
+        <Button
+          onPress={() => {console.log('oulala')}}
+          title="Press me">
+          You can press me
+        </Button>
+      </Swiper>
     </SafeAreaView>
 
     /*<ScrollView style={styles.gamesList}>

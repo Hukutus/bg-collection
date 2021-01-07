@@ -1,28 +1,79 @@
-import {StyleSheet, Text, TextInput, View} from "react-native";
-import React, {FC, useState} from "react";
-import BGGApi from "../components/BGGApi";
+import {Button, SafeAreaView, StyleSheet, Text, View} from "react-native";
+import React, {FC, useEffect, useState} from "react";
 
-import { firebase } from '../components/Firebase';
-const db = firebase.firestore();
+import {BoardGameCollectionInfo, getCollections} from "../components/GameFunctions";
+import UserToggle from "../components/UserToggle";
+import {NavProp} from "./index";
 
-/*const getUsers = async (): Promise<void> => {
-  console.log("Get users!");
+const Home: FC<NavProp> = ({navigation}) => {
+  const [collections, setCollections] = useState<BoardGameCollectionInfo[]>([]);
+  const [selectedCollections, setSelectedCollections] = useState<BoardGameCollectionInfo[]>([]);
 
-  const snapshot = await db
-    .collection("collections")
-    .get();
+  const toggleSelectCollection = (collection: BoardGameCollectionInfo) => {
+    if (selectedCollections.findIndex(coll => coll.user === collection.user) === -1) {
+      // Add selection
+      setSelectedCollections(prev => [...prev, collection]);
+    }
+    else {
+      // Remove selection
+      const filtered = selectedCollections.filter(coll => coll.user !== collection.user);
+      setSelectedCollections(filtered);
+    }
+  };
 
-  snapshot.forEach((doc) => {
-    console.log("Data?", doc.data());
-  });
-};*/
+  const addUnnamedPlayer = (name?: string) => {
+    setCollections(prev => [...prev, {
+      user: name || "",
+      size: 0,
+      games: [],
+    }]);
+  };
 
-const Home: FC = () => {
-  const [playerCount, playerCountChange] = useState<string>("3");
+  useEffect(() => {
+    (async function GetCollectionsAsync() {
+      setCollections(await getCollections());
+    })();
+  }, []);
 
   return (
-    <View style={styles.view}>
-      <View style={styles.countSelector}>
+    <SafeAreaView style={styles.view}>
+      <Text style={styles.header}>
+        Welcome!
+      </Text>
+
+      <View style={styles.questionView}>
+        <Text style={styles.questionLabel}>
+          Who's playing?
+        </Text>
+      </View>
+
+      <View style={styles.collections}>
+        {
+          collections?.map((coll, i) => (
+            <UserToggle
+              key={"collection_" + i + "_" + coll.user}
+              i={i}
+              collection={coll}
+              selected={selectedCollections.indexOf(coll) !== -1}
+              onPress={() => toggleSelectCollection(coll)}
+            />
+          ))
+        }
+      </View>
+
+      <Button
+        title={"+"}
+        onPress={() => addUnnamedPlayer()}
+      />
+
+      <Button
+        title={"View games best for your group"}
+        onPress={() => navigation.navigate("Collection", {
+          collections: selectedCollections
+        })}
+      />
+
+      {/*<View style={styles.countSelector}>
         <Text
           style={styles.text}
         >
@@ -39,8 +90,8 @@ const Home: FC = () => {
 
       <BGGApi
         playerCount={playerCount}
-      />
-    </View>
+      />*/}
+    </SafeAreaView>
   );
 };
 
@@ -50,7 +101,31 @@ const styles = StyleSheet.create({
   view: {
     flex: 1,
     flexGrow: 1,
-    margin: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 10,
+    paddingTop: 24,
+    backgroundColor: "lightblue"
+  },
+  header: {
+    fontSize: 30,
+    marginBottom: 10,
+    fontWeight: "bold",
+  },
+  questionView: {
+    flexDirection: "row",
+  },
+  questionLabel: {
+    textAlign: "center",
+    flex: 1,
+    fontSize: 20,
+    marginBottom: 10,
+    fontWeight: "bold",
+  },
+  collections: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 30,
   },
   countSelector: {
     flexDirection: "row",

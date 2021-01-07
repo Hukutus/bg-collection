@@ -6,22 +6,67 @@ import BGLabel from "./BGLabel";
 
 export type GameCardType = {
   game?: BoardGame;
+  extended?: boolean;
 }
 
+const CroppedImage: FC<any> = (props: any) => {
+    return (
+      <View
+        style={[
+          {
+            overflow: 'hidden',
+            height: props.cropHeight,
+            width: props.cropWidth,
+            backgroundColor: 'transparent'
+          },
+          props.style
+        ]}
+      >
+        <Image
+          style={{
+            position: 'absolute',
+            top: props.cropTop * -1,
+            left: props.cropLeft * -1,
+            width: props.width,
+            height: props.height
+          }}
+          source={props.source}
+          resizeMode={props.resizeMode}
+        >
+          {props.children}
+        </Image>
+      </View>
+    );
+};
+
 const GameCard: FC<GameCardType> = (props: GameCardType) => {
+  const size: number = Dimensions.get("window").width - 40;
+
   return (
     <View style={[styles.view, styles.shadow]}>
-      <Image
-        source={{uri: props.game?.thumbnail}}
-        style={styles.image}
+      {/*<Image
+        source={{uri: props.game?.image}}
+        style={[
+          styles.image,
+          {
+            width: size,
+            height: size,
+          }
+        ]}
+      />*/}
+
+      <CroppedImage
+        source={{uri: props.game?.image}}
+        cropTop={0}
+        cropLeft={0}
+        cropWidth={size}
+        cropHeight={size}
+        width={size}
+        height={size}
       />
 
-      <View style={styles.infoBox}>
+      <View style={[styles.flexRow]}>
         <Text style={styles.title}>{props.game?.name}</Text>
-
-        <ScrollView style={styles.scrollView}>
-          <Text style={styles.text}>{props.game?.description}</Text>
-        </ScrollView>
 
         <View style={styles.labelRow}>
           <BGLabel label={"Best: " + props.game?.bestplayers + "p"}/>
@@ -29,6 +74,25 @@ const GameCard: FC<GameCardType> = (props: GameCardType) => {
           <BGLabel label={props.game?.playingtime + "min"}/>
         </View>
       </View>
+
+      <Text>Owned by: {props?.game?.ownedBy}</Text>
+
+      {
+        props.extended &&
+        <View style={styles.infoBox}>
+          <Text style={styles.title}>{props.game?.name}</Text>
+
+          <ScrollView style={styles.scrollView}>
+            <Text style={styles.text}>{props.game?.description}</Text>
+          </ScrollView>
+
+          <View style={styles.labelRow}>
+            <BGLabel label={"Best: " + props.game?.bestplayers + "p"}/>
+            <BGLabel label={props.game?.minplayers + "-" + props.game?.maxplayers + "p"}/>
+            <BGLabel label={props.game?.playingtime + "min"}/>
+          </View>
+        </View>
+      }
     </View>
   );
 };
@@ -37,9 +101,8 @@ export default GameCard;
 
 const styles = StyleSheet.create({
   view: {
-    height: 170,
     backgroundColor: "darkgray",
-    flexDirection: "row",
+    flexDirection: "column",
     justifyContent: "space-between",
     padding: 10,
     borderRadius: 6,
@@ -49,6 +112,9 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
     color: "white"
+  },
+  flexRow: {
+    flexDirection: "column"
   },
   scrollView: {
     height: 65,
@@ -63,9 +129,9 @@ const styles = StyleSheet.create({
     color: "white"
   },
   image: {
-    width: 120,
-    height: 150,
     borderRadius: 3,
+    position: "absolute",
+    top: 0
   },
   shadow: {
     shadowColor: "black",
