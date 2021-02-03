@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "BG Collection",
+    "icon": "./icon.png",
+    "version": "0.1.0",
+    "slug": "bg-collection",
+    "ios": {
+      "bundleIdentifier": "com.yourcompany.yourappname",
+      "buildNumber": "0.1.0"
+    },
+    "android": {
+      "package": "com.yourcompany.yourappname",
+      "versionCode": 1
+    }
+  }
+}

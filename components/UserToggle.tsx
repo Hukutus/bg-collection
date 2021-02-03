@@ -1,6 +1,6 @@
 import React, {FC} from "react";
 import {View, Text, StyleSheet, TouchableOpacity} from "react-native";
-import {BoardGameCollectionInfo} from "./BGGApi";
+import {BoardGameCollectionInfo} from "../lib/BGGApi";
 
 export type UserToggleType = {
   collection: BoardGameCollectionInfo;

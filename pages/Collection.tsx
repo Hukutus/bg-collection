@@ -1,8 +1,8 @@
 import React, {FC, useEffect, useState} from "react";
 import {Button, FlatList, SafeAreaView, StyleSheet, Text, View} from "react-native";
 import GameCard from "../components/GameCard";
-import {BoardGameCollectionInfo, getGamesForGroup} from "../components/GameFunctions";
-import {BoardGame} from "../components/BGGApi";
+import {BoardGameCollectionInfo, getGamesForGroup} from "../lib/GameFunctions";
+import {BoardGame} from "../lib/BGGApi";
 
 const Collection: FC<any> = ({route, navigation}) => {
   const [collections, setCollections] = useState<BoardGameCollectionInfo[]>([]);

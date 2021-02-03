@@ -1,6 +1,6 @@
 import React, {FC} from "react";
 import {View, Text, Image, StyleSheet, Dimensions, ScrollView} from "react-native";
-import {BoardGame} from "./BGGApi";
+import {BoardGame} from "../lib/BGGApi";
 import BGLabel from "./BGLabel";
 
 

@@ -4,16 +4,15 @@ import _ from "lodash";
 import {decode} from 'html-entities';
 import Swiper from "react-native-deck-swiper";
 
-import GameCard from "./GameCard";
+import GameCard from "../components/GameCard";
 import {StyleSheet, View, Text, ScrollView, FlatList, SafeAreaView, Button} from "react-native";
 
 const parseString = require('react-native-xml2js').parseString;
 
-import {firebase} from '../components/Firebase';
+import {firebase} from './Firebase';
+import {bggUsers} from "../config";
 
 const db = firebase.firestore();
-
-const bgUsers: string[] = ["Domonation", "m0rlo"];
 
 export interface BGGPlayerData {
   min: number;
@@ -40,7 +39,7 @@ export interface BoardGameCollectionInfo {
   size: number;
 
   games: BoardGameInfo[];
-  updatedAt?: Date;
+  updatedAt?: Date | any;
 }
 
 export interface GamesByPlayerCount {
@@ -102,6 +101,8 @@ const parseCollectionJson = (resultObject: Record<string, any>[], userName: stri
   if (!resultObject) {
     return null;
   }
+
+  console.log("resultObject", resultObject);
 
   return {
     user: userName,
@@ -412,7 +413,7 @@ const BGGApi: FC<ApiProps> = (props: ApiProps) => {
   useEffect(() => {
     if (!collection) {
       (async function fetchCollectionAsync() {
-        await getCollection("Domonation");
+        await getCollection(bggUsers[0].name);
       })();
     }
   }, []);

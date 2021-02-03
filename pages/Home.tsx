@@ -1,11 +1,14 @@
 import {Button, SafeAreaView, StyleSheet, Text, View} from "react-native";
 import React, {FC, useEffect, useState} from "react";
 
-import {BoardGameCollectionInfo, getCollections} from "../components/GameFunctions";
+import {BoardGameCollectionInfo, fetchCurrentUser, fetchUser, getCollections} from "../lib/GameFunctions";
 import UserToggle from "../components/UserToggle";
 import {NavProp} from "./index";
+import {getUser, UserType} from "../lib/AsyncStorage";
+import {bggUsers} from "../config";
 
 const Home: FC<NavProp> = ({navigation}) => {
+  const [user, setUser] = useState<UserType>();
   const [collections, setCollections] = useState<BoardGameCollectionInfo[]>([]);
   const [selectedCollections, setSelectedCollections] = useState<BoardGameCollectionInfo[]>([]);
 
@@ -23,7 +26,7 @@ const Home: FC<NavProp> = ({navigation}) => {
 
   const addUnnamedPlayer = (name?: string) => {
     setCollections(prev => [...prev, {
-      user: name || "",
+      user: name || "" + collections.length,
       size: 0,
       games: [],
     }]);
@@ -32,13 +35,20 @@ const Home: FC<NavProp> = ({navigation}) => {
   useEffect(() => {
     (async function GetCollectionsAsync() {
       setCollections(await getCollections());
+
+      fetchUser(bggUsers[0].name).then();
+
+      getUser()
+        .then((data: UserType | null) => {
+          setUser(data || {bggName: "", alias: ""});
+        });
     })();
   }, []);
 
   return (
     <SafeAreaView style={styles.view}>
       <Text style={styles.header}>
-        Welcome!
+        Welcome {user?.alias || ""}
       </Text>
 
       <View style={styles.questionView}>
@@ -64,6 +74,16 @@ const Home: FC<NavProp> = ({navigation}) => {
       <Button
         title={"+"}
         onPress={() => addUnnamedPlayer()}
+      />
+
+      <Button
+        title={"Settings"}
+        onPress={() => navigation.navigate("Settings")}
+      />
+
+      <Button
+        title={"Game Night"}
+        onPress={() => navigation.navigate("Game Night")}
       />
 
       <Button

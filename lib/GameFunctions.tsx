@@ -1,7 +1,10 @@
 import React from "react";
 import _ from "lodash";
 import {decode} from 'html-entities';
-import {firebase} from '../components/Firebase';
+import { v4 as uuid } from 'uuid';
+import {firebase} from './Firebase';
+
+import {GameNightType} from "../pages/GameNights";
 
 const parseString = require('react-native-xml2js').parseString;
 const db = firebase.firestore();
@@ -263,6 +266,40 @@ export const setGame = async (gameId: string | undefined, changes: BoardGame): P
   console.log("Saved game to database", gameId, gameDoc || changes);
 };
 
+export const fetchCurrentUser = async (): Promise<void> => {
+  await fetch("https://boardgamegeek.com/api/users/current", {method: "cors"})
+    .then(res => {
+      console.log("Current BGG user?", res);
+    })
+};
+
+export const fetchUser = async (username: string): Promise<void> => {
+  await fetch(apiPath + "user?name=" + username)
+    .then((res: Response) => {
+      return res.text();
+    })
+    .then((xmlString: string) => {
+      return new Promise((resolve, reject) => parseString(xmlString, (err: string, result: Record<string, any>) => {
+        if (err) {
+          console.warn("Error with XML parse", err);
+          return reject(err);
+        }
+
+        const data = result;
+
+        if (!data) {
+          console.warn("Invalid data from XML parse", result);
+          return reject("Invalid data");
+        }
+
+        resolve(data as any);
+      })) as Promise<any>;
+    })
+    .then((result: any[]) => {
+      console.log("Got user DOC?", result);
+    });
+};
+
 // Fetch games from BGG API
 // gameIds separated by commas
 export const fetchGames = async (games: BoardGameInfo[], user: string): Promise<BoardGame[]> => {
@@ -321,28 +358,9 @@ export const getCollectionGames = async (collectionInfo: BoardGameCollectionInfo
   return await fetchGames(collectionInfo.games, collectionInfo.user);
 };
 
-export const getCollection = async (userName: string): Promise<BoardGameCollectionInfo | null> => {
-  const gameCollection: BoardGameCollectionInfo | null = await db
-    .collection("GameCollections")
-    .where("user", "==", userName)
-    .get()
-    .then(snapshot => {
-      if (snapshot.empty) {
-        console.warn("Snapshot was empty", userName);
-        return null;
-      }
-
-      return snapshot?.docs?.length ? snapshot?.docs[0]?.data() as BoardGameCollectionInfo : null;
-    });
-
-  if (gameCollection) {
-    return gameCollection;
-  }
-
-  console.log("Collection doesn't exist, get from BGG API", userName);
-
+export const fetchCollection = async (userName: string, params: string = "&own=1&subtype=boardgame&excludesubtype=boardgameexpansion"): Promise<BoardGameCollectionInfo | null> => {
   // Collection not in DB, fetch from BGG API
-  return await fetch(apiPath + "collection?username=" + userName + "&own=1")
+  return await fetch(apiPath + "collection?username=" + userName + params)
     .then((res: Response) => {
       return res.text();
     })
@@ -373,8 +391,8 @@ export const getCollection = async (userName: string): Promise<BoardGameCollecti
 
         db
           .collection("GameCollections")
-          .doc()
-          .set(parsedCollection);
+          .doc(userName)
+          .set(parsedCollection, {merge: true});
 
         return parsedCollection;
       }
@@ -385,6 +403,28 @@ export const getCollection = async (userName: string): Promise<BoardGameCollecti
       console.error("Failed getting collection", userName, err);
       return null;
     });
+};
+
+export const getCollection = async (userName: string, fetchOnMissing: boolean = true): Promise<BoardGameCollectionInfo | null> => {
+  const gameCollection: BoardGameCollectionInfo | null = await db
+    .collection("GameCollections")
+    .where("user", "==", userName)
+    .get()
+    .then(snapshot => {
+      if (snapshot.empty) {
+        console.warn("Snapshot was empty", userName);
+        return null;
+      }
+
+      return snapshot?.docs?.length ? snapshot?.docs[0]?.data() as BoardGameCollectionInfo : null;
+    });
+
+  if (gameCollection) {
+    return gameCollection;
+  }
+
+  console.log("Collection doesn't exist, get from BGG API", userName);
+  return fetchOnMissing ? await fetchCollection(userName) : null;
 };
 
 export const getCollections = async (): Promise<BoardGameCollectionInfo[]> => {
@@ -399,3 +439,79 @@ export const getCollections = async (): Promise<BoardGameCollectionInfo[]> => {
       return snapshot.docs.map(item => item.data()) as BoardGameCollectionInfo[];
     });
 };
+
+export const getGameNight = async (id: string): Promise<GameNightType | null> => {
+  if (!id) {
+    return null;
+  }
+
+  return await db
+    .collection("GameNights")
+    .where("id", "==", id)
+    .get()
+    .then(snapshot => {
+      if (snapshot.empty) {
+        // No game night with given id
+        return null;
+      }
+
+      return snapshot?.docs?.length ? snapshot?.docs[0]?.data() as GameNightType : null;
+    });
+};
+
+
+// export const setGameNight = async (gameNight: GameNightType): Promise<void> => {
+//   if (!gameNight) {
+//     console.warn("No gameNight");
+//     return;
+//   }
+//
+//   // Check if game exists in db
+//   const gameNightDoc: GameNightType | null = await db
+//     .collection("GameNight")
+//     .where("id", "==", gameId)
+//     .get()
+//     .then(snapshot => {
+//       if (snapshot.empty) {
+//         return null;
+//       }
+//
+//       return snapshot?.docs?.length ? snapshot?.docs[0]?.data() as GameNightType : null;
+//     });
+//
+//   let changeDetected: boolean = false;
+//
+//   if (gameDoc) {
+//     // Found game in db
+//     if (_.isEqual(gameDoc, changes)) {
+//       // No changes
+//       return;
+//     } else {
+//       // Update each key
+//       for (const key of Object.keys(changes)) {
+//         if (_.isEqual(gameDoc[key as keyof BoardGame], changes[key as keyof BoardGame])) {
+//           // Value not changed
+//           continue;
+//         }
+//
+//         gameDoc[key as keyof BoardGame] = changes[key as keyof BoardGame] as any;
+//         changeDetected = true;
+//       }
+//     }
+//   } else {
+//     // New entry
+//     changeDetected = true;
+//   }
+//
+//   if (!changeDetected) {
+//     // Not changes
+//     return;
+//   }
+//
+//   await db
+//     .collection("BoardGame")
+//     .doc(gameId)
+//     .set(gameDoc || changes, {merge: true});
+//
+//   console.log("Saved game to database", gameId, gameDoc || changes);
+// };

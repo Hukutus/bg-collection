@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^1.13.2",
+    "@react-native-community/datetimepicker": "3.0.4",
     "@react-native-community/masked-view": "^0.1.10",
     "@react-native-firebase/app": "^10.4.0",
     "@react-native-firebase/database": "^10.4.0",
@@ -7,6 +9,7 @@
     "@react-navigation/bottom-tabs": "^5.11.2",
     "@react-navigation/native": "^5.8.10",
     "@react-navigation/stack": "^5.12.8",
+    "date-fns": "^2.16.1",
     "expo": "~40.0.0",
     "firebase": "7.9.0",
     "html-entities": "^2.0.2",
@@ -17,12 +20,14 @@
     "react-native": "https://github.com/expo/react-native/archive/sdk-40.0.1.tar.gz",
     "react-native-deck-swiper": "^2.0.5",
     "react-native-gesture-handler": "^1.9.0",
+    "react-native-get-random-values": "^1.5.1",
     "react-native-reanimated": "^1.13.2",
     "react-native-safe-area-context": "^3.1.9",
     "react-native-screens": "^2.16.1",
     "react-native-web": "~0.13.12",
     "react-native-xml2js": "^1.0.3",
-    "styled-components": "^5.2.1"
+    "styled-components": "^5.2.1",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@babel/core": "~7.9.0",
@@ -35,14 +40,17 @@
     "@types/react-test-renderer": "^17.0.0",
     "@types/styled-components": "^5.1.7",
     "@types/styled-components-react-native": "^5.1.0",
+    "@types/uuid": "^8.3.0",
     "typescript": "^4.1.3"
   },
   "scripts": {
     "expo-start": "expo start",
     "expo-start-clean": "expo start -c",
     "expo-android": "expo start --android",
+    "expo-apk": "expo build:android -t apk",
+    "expo-keystroke": "expo fetch:android:keystore",
     "expo-ios": "expo start --ios",
-    "expo-web": "expo web",
+    "expo-web": "expo start --web",
     "expo-eject": "expo eject",
     "next-start": "yarn next dev",
     "next-build": "next build"
